@@ -13,7 +13,7 @@ struct Settings: Codable {
     var otherDeduction = 0.0
     var start = "09:00"; var end = "18:00"; var lunchStart = "12:00"; var lunchEnd = "13:00"
     var weekdays = [1,2,3,4,5]
-    var opacity = 0.94; var alwaysOnTop = true; var dark = false; var size = "標準"
+    var opacity = 1.0; var alwaysOnTop = false; var dark = false; var size = "標準"
     var launchOnLogin = false
     var holidayOverrides: [String: String] = [:] // date -> holiday / workday
     var leaves: [LeaveEntry] = []
@@ -135,16 +135,29 @@ enum Calc {
         WindowGroup {
             Dashboard(store: store)
         }
-        .defaultSize(width: 300, height: 255)
-        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 340, height: 300)
+        .windowStyle(.automatic)
         .windowResizability(.contentSize)
     }
 }
 
 struct WindowAccessor: NSViewRepresentable {
     let top: Bool; let opacity: Double
-    func makeNSView(context: Context) -> NSView { let v=NSView(); DispatchQueue.main.async { if let w=v.window { w.level = top ? .floating : .normal; w.isOpaque=false; w.backgroundColor = .clear; w.alphaValue=1; w.title="Salary Tracker"; w.isMovableByWindowBackground=true } }; return v }
-    func updateNSView(_ nsView: NSView, context: Context) { DispatchQueue.main.async { if let w=nsView.window { w.level=top ? .floating : .normal; w.alphaValue=1; w.isMovableByWindowBackground=true } } }
+    func makeNSView(context: Context) -> NSView { let v=NSView(); DispatchQueue.main.async { if let w=v.window { Self.configureWindow(w, top: top); w.title="賣命計時器" } }; return v }
+    func updateNSView(_ nsView: NSView, context: Context) { DispatchQueue.main.async { if let w=nsView.window { Self.configureWindow(w, top: top) } } }
+    static func configureWindow(_ w: NSWindow, top: Bool) {
+        w.styleMask.formUnion([.titled, .closable, .miniaturizable])
+        w.standardWindowButton(.closeButton)?.isHidden = false
+        w.standardWindowButton(.miniaturizeButton)?.isHidden = false
+        w.titleVisibility = .hidden
+        w.titlebarAppearsTransparent = true
+        w.level = top ? .floating : .normal
+        w.isOpaque = false
+        w.backgroundColor = .clear
+        w.alphaValue = 1
+        w.ignoresMouseEvents = false
+        w.isMovableByWindowBackground = true
+    }
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize { CGSize(width: 1, height: 1) }
 }
 
@@ -247,7 +260,7 @@ struct Dashboard: View {
         let deduction=s.monthLeaveDeduction(now:now)
         return VStack(alignment:.leading,spacing:10){Text(now.formatted(.dateTime.year().month())).font(.title3.bold());HStack{Text("本月累積實領");Spacer();Text(Calc.money(Calc.cumulativePay(to:now,settings:s)))};HStack{Text("本月排定工時");Spacer();Text("\(Int(Calc.monthScheduledSeconds(now,settings:s)/3600)) 小時")};HStack{Text("本月請假扣款");Spacer();Text("− "+Calc.money(deduction))};HStack{Text("月實領預估");Spacer();Text(Calc.money(s.monthlySalary-labor-emp-health-s.otherDeduction-deduction))};Text("本月累積 = 預估實領 ÷ 本月排定工時 × 已經過排定工時，再扣已發生的扣薪假。") .font(.system(size:10)).foregroundStyle(.secondary);Spacer()}.font(.system(size:12))
     }
-    func applyWindow(){ if let w=NSApp.windows.first { w.level=s.alwaysOnTop ? .floating:.normal; w.alphaValue=1; w.isMovableByWindowBackground=true } }
+    func applyWindow(){ if let w=NSApp.windows.first(where:{$0.isVisible && $0.contentView != nil}) { WindowAccessor.configureWindow(w, top:s.alwaysOnTop) } }
 }
 
 extension Settings {
