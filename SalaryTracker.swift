@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import ServiceManagement
+import IOKit
 
 struct LeaveEntry: Identifiable, Codable {
     var id = UUID(); var date = Date(); var start = "09:00"; var end = "18:00"
@@ -23,12 +24,34 @@ struct Settings: Codable {
     @Published var value: Settings { didSet { save() } }
     private let url: URL
     init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("SalaryTracker", isDirectory: true)
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("SalaryTracker", isDirectory: true)
+        let id = Self.platformID() ?? Self.localID(in: root)
+        let dir = root.appendingPathComponent("devices", isDirectory: true).appendingPathComponent(id, isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("settings.json")
+        // Import existing local preferences once; each Mac then writes to its own device folder.
+        let previous = root.appendingPathComponent("settings.json")
+        if !FileManager.default.fileExists(atPath: url.path), FileManager.default.fileExists(atPath: previous.path) {
+            try? FileManager.default.copyItem(at: previous, to: url)
+        }
         if let data = try? Data(contentsOf: url), let decoded = try? JSONDecoder().decode(Settings.self, from: data) { value = decoded } else { value = Settings() }
     }
     private func save() { if let data = try? JSONEncoder().encode(value) { try? data.write(to: url, options: .atomic) } }
+    private static func platformID() -> String? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"))
+        guard service != IO_OBJECT_NULL else { return nil }
+        defer { IOObjectRelease(service) }
+        guard let property = IORegistryEntryCreateCFProperty(service, "IOPlatformUUID" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String else { return nil }
+        return property.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" }
+    }
+    private static func localID(in root: URL) -> String {
+        let idFile = root.appendingPathComponent("device-id")
+        if let id = try? String(contentsOf: idFile, encoding: .utf8), !id.isEmpty { return id }
+        let id = UUID().uuidString.lowercased()
+        try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try? id.write(to: idFile, atomically: true, encoding: .utf8)
+        return id
+    }
 }
 
 enum Calc {

@@ -1,12 +1,6 @@
 # Salary Tracker 薪水計算器
 
-## 下載 macOS 版
-
-[下載 Universal DMG（Apple Silicon 與 Intel）](https://github.com/Violetbb/salary-tracker/raw/refs/heads/main/SalaryTracker.dmg)
-
-開啟 DMG 後，將 App 拖到「應用程式」。首次開啟若被 macOS 擋下，請在 Finder 對 App 按右鍵選「打開」。
-
-原生 macOS SwiftUI 桌面小工具。無網路、無帳號，設定以 JSON 儲存於 `~/Library/Application Support/SalaryTracker/settings.json`。
+原生 macOS SwiftUI 桌面小工具。無網路、無帳號。設定以 JSON 儲存在本機 `~/Library/Application Support/SalaryTracker/devices/<本機識別碼>/settings.json`；每台 Mac 使用自己的資料夾，設定不會透過 App 同步。舊版設定會在該台 Mac 首次升級時匯入一次。
 
 ## 建置與啟動
 
